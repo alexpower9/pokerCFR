@@ -31,3 +31,12 @@ std::string Card::toString() const {
     return oss.str();
 
 }
+
+Card::Suit Card::getSuit() const {
+    return suit;
+}
+
+int Card::getRank() const {
+    return rank;
+}
+
