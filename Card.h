@@ -16,7 +16,15 @@ public:
         return Card{rank, suit};
     }
 
+    // we need to sort cards for least to greatest
+    bool operator<(const Card &other) const {
+        return rank > other.rank;
+    }
+
     [[nodiscard]] std::string toString() const;
+
+    Suit getSuit() const;
+    int getRank() const;
 
 private:
     int rank;

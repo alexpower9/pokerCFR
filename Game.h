@@ -9,20 +9,18 @@
 #include "Player.h"
 #include "Deck.h"
 #include "Card.h"
-#include "Bot.h"
-#include "Player.h"
-#include <tuple>
 
 // for now, lets just do heads up NLH
 class Game {
 
-
-    Game(const int bigBlind, const int smallBlind, int startingStacks)
-    : bigBlind(bigBlind), smallBlind(smallBlind), bot(startingStacks, Bot::Position::SB), player(startingStacks, Player::Position::BB)  {};
-
+public:
+    Game(const int bigBlind, const int smallBlind, const int startingStacks)
+    : bigBlind(bigBlind), smallBlind(smallBlind), bot(startingStacks, Bot::Position::BB), player(startingStacks, Player::Position::SB)  {};
 
     enum class Street {PreFlop, Flop, Turn, River};
     enum class HandRanking {HighCard, OnePair, TwoPair, Trips, Straight, Flush, FullHouse, Quads, StraightFlush};
+    static const std::unordered_map<u_int32_t, std::string> rankToString;
+    static const std::unordered_map<Street, std::string> streetToString;
 
 
     // deal the cards out to all the players
@@ -30,9 +28,9 @@ class Game {
 
     // return an int for whichever player won the hand
     // just say that 0 = player, while 1 is the bot
-    std::tuple<HandRanking, int> classifyHand(std::vector<Card> hand);
-    int evaluateHands(std::vector<Card> hand1, std::vector<Card> hand2);
-    void runGame(Player &player, Bot &bot);
+    static u_int32_t classifyHand(const std::vector<Card> &hand);
+    int evaluateHands(const std::vector<Card> &hand1, const std::vector<Card> &hand2);
+    void runGame();
 
     // sort of redundant as all we are doing is pushing a card community cards
     // albeit 3 for the flop
@@ -41,10 +39,13 @@ class Game {
     void river();
 
     void seeBoard() const;
+    static bool hasAce(const std::vector<Card> &hand);
+    void reset_deck();
+    void printGame(int pot) const;
+    void printPositions() const;
 
-    // maintain the current pot
-    int pot_amount = 0;
-    int iterations = 0;
+    Street currentStreet = Street::PreFlop;
+
 
 private:
     std::vector<Card> communityCards;

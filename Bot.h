@@ -14,11 +14,20 @@ public:
     enum class Move {Call, Raise, Fold, Check, AllIn};
     enum class Position {BB, SB};
 
+
+    static const std::unordered_map<Position, std::string> positionToString;
+    static const std::unordered_map<Position, std::string> streetToString;
     static Move move();
     void dealHand(Deck &deck);
     void seeHand() const;
     void changeStack(int amount, int wonChips);
     void wonHand(int amount);
+    void changePosition();
+    Position getPosition() const;
+    int payBlind(int bb, int sb);
+    void call(int amount);
+
+    int getStack() const;
 
 
 
