@@ -54,5 +54,3 @@ std::vector<Card> BaseParticipant::getCards() const {
 
 
 
-
-

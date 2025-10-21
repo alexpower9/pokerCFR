@@ -28,6 +28,7 @@ public:
     void addCard(Card card);
     void resetHand();
     std::vector<Card> getCards() const;
+    [[nodiscard]] inline unsigned int getStack() const { return stack; };
 
 protected:
     unsigned int stack;
