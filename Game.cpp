@@ -59,8 +59,6 @@ void Game::runGame() {
 
     // we are going to need the roundContext endCode (but not really)
     handleWinner(roundContext);
-
-
     // }
 }
 
@@ -423,17 +421,27 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
     // this get number of players is only for players NOT folded
     unsigned int numberOfPlayers = table.getNumberOfActivePlayers();
 
+    // reminder that numberOfPlayers returns the number of players not FOLDED
+    // so we need to devise a way to just skip player with no chips
+    while (counter != numberOfPlayers && !onePlayerLeft()) {
+        // so it is getting stuck here when all the players have contributed their chips
 
-    while (counter != numberOfPlayers) {
-        for (int i = 0; i < players.size(); i++) {
+        // so if all active players are all-in (no chips), continue through the streets and get the winner
+        if (checkShowdown()) {
+            break;
+        }
 
-            if (players[i]->isFolded()) continue; // skip the rest of this if the player has folded
+        for (int i = 0; i < players.size() && !onePlayerLeft(); i++) {
+
+            // if the player has folded, or if they have no chips, we can skip their turn
+            if (players[i]->isFolded() || players[i]->getStack() == 0) continue;
 
             if (dynamic_cast<Player*>(players[i])) {
                 // only see the players hand, not the bots.
                 std::cout << "Your hand is: " << players[i]->getHand() << "\n";
             }
-            // we need to fix the fact we can still act when it is folded over to us
+
+            // if a player does not have chips left
             const Action action = players[i]->act(roundContext, roundContext.amountToCall(i, players));
 
 
@@ -452,14 +460,11 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
             }
         }
     }
-
     // now we report the end code via roundContext
     // so if the round is done, the game can be made aware
     numberOfPlayers = table.getNumberOfActivePlayers();
     if (numberOfPlayers > 1 && street == Street::River) roundContext.endCode = 2;
     else if (numberOfPlayers == 1) roundContext.endCode = 1;
-
-
 }
 
 // the end code might not even be useful
@@ -490,6 +495,26 @@ void Game::handleWinner(const RoundContext &roundContext) const {
 
     std::cout << "Player won with the hand " << winningPlayer->getHand() << "\n";
 }
+
+inline bool Game::onePlayerLeft() const {
+    return (table.getNumberOfActivePlayers() == 1);
+}
+
+bool Game::checkShowdown() const {
+    // so if we have more than 1 active player, and they all have no chips, then
+    // we can break the while loop and just progress the game
+    unsigned int activePlayersCount = 0;
+    unsigned int allInCount = 0;
+
+    for (const auto &p:table.getPlayers()) {
+        if (!p->isFolded()) activePlayersCount++;
+        if (p->getStack() == 0) allInCount++;
+    }
+
+    return (activePlayersCount > 1 && activePlayersCount == allInCount);
+}
+
+
 
 
 

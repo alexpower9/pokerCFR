@@ -58,7 +58,8 @@ public:
     void updateRoundContext(RoundContext &roundContext, Action action, unsigned int playerIdx) const;
     void playStreet(Street street, RoundContext &roundContext);
     void handleWinner(const RoundContext &roundContext) const;
-
+    inline bool onePlayerLeft() const;
+    bool checkShowdown() const;
 
 
 private:

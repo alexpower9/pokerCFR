@@ -11,7 +11,6 @@
 
 // action as move, amount
 Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
-
     const std::string prevMove = (roundContext.lastMove == Move::NO_MOVE) ? std::string{"You are first to act"} : "Last move was a " + moveToString(roundContext.lastMove);
 
     std::cout << prevMove <<
