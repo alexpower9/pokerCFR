@@ -14,4 +14,13 @@ add_executable(CppTutorial main.cpp
         Bot.h
         Bot.cpp
         Game.cpp
+        BaseParticipant.h
+        Move.h
+        Position.h
+        Action.h
+        BaseParticipant.cpp
+        Table.h
+        Table.cpp
+        RoundContext.h
+        Street.h
 )
