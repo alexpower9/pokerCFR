@@ -34,7 +34,7 @@ Card Deck::draw() {
         throw std::out_of_range("deck is empty!");
     }
 
-    Card card = deck.back();
+    const Card card = deck.back();
     deck.pop_back();
     return card;
 }

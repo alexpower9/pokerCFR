@@ -9,18 +9,30 @@
 #include "Player.h"
 #include "Deck.h"
 #include "Card.h"
-
+#include "Table.h"
+#include "Street.h"
+// we should keep track of number of actions to ensure
+// everyone acts during the street
 // for now, lets just do heads up NLH
 class Game {
 
 public:
-    Game(const int bigBlind, const int smallBlind, const int startingStacks)
-    : bigBlind(bigBlind), smallBlind(smallBlind), bot(startingStacks, Bot::Position::BB), player(startingStacks, Player::Position::SB)  {};
+    Game(int bb, int sb, int stack)
+    : bigBlind(bb),
+      smallBlind(sb),
+      table([&] {
+          std::vector<std::unique_ptr<BaseParticipant>> v;
+          v.push_back(std::make_unique<Player>(stack, Position::SB));
+          v.push_back(std::make_unique<Player>(stack, Position::BB));
+          v.push_back(std::make_unique<Player>(stack, Position::UTG));
+          // v.push_back(std::make_unique<Bot>(stack, Position::BB));
+          return Table(std::move(v));
+      }())
+    {}
 
-    enum class Street {PreFlop, Flop, Turn, River};
+
     enum class HandRanking {HighCard, OnePair, TwoPair, Trips, Straight, Flush, FullHouse, Quads, StraightFlush};
     static const std::unordered_map<u_int32_t, std::string> rankToString;
-    static const std::unordered_map<Street, std::string> streetToString;
 
 
     // deal the cards out to all the players
@@ -34,9 +46,6 @@ public:
 
     // sort of redundant as all we are doing is pushing a card community cards
     // albeit 3 for the flop
-    void flop();
-    void turn();
-    void river();
 
     void seeBoard() const;
     static bool hasAce(const std::vector<Card> &hand);
@@ -44,16 +53,19 @@ public:
     void printGame(int pot) const;
     void printPositions() const;
 
-    Street currentStreet = Street::PreFlop;
+    RoundContext createRoundContextForNextRound(Street street, unsigned int potSize, int endCode) const;
+    RoundContext newHandContext(const std::vector<BaseParticipant*> &players) const;
+    void updateRoundContext(RoundContext &roundContext, Action action, unsigned int playerIdx) const;
+    void playStreet(Street street, RoundContext &roundContext);
+    void handleWinner(const RoundContext &roundContext) const;
+
 
 
 private:
-    std::vector<Card> communityCards;
     int bigBlind;
     int smallBlind;
-    Bot bot;
-    Player player;
     Deck deck = Deck::create();
+    Table table;
 };
 
 #endif //CPPTUTORIAL_GAME_H

@@ -4,39 +4,20 @@
 
 #ifndef CPPTUTORIAL_PLAYER_H
 #define CPPTUTORIAL_PLAYER_H
-#include <array>
-#include "Card.h"
-#include "Deck.h"
+#include <iostream>
+#include "BaseParticipant.h"
+#include "Action.h"
 
-class Player {
 
+class Player : public BaseParticipant {
 public:
-    enum class Move {Call, Raise, Fold, Check, AllIn};
-    enum class Position {BB, SB};
+    Player(int startingStack, Position position) : BaseParticipant(startingStack, position) {};
 
-    Player(const int starting_stack, const Position position): chips(starting_stack), position(position) {};
-    static const std::unordered_map<Position, std::string> positionToString;
+    Action act(RoundContext& roundContext, unsigned int amountToCall) override;
+    ~Player() override {
+        std::cout << "Player is gone!" << std::endl;
+    }
 
-    void seeHand() const;
-    void dealHand(Deck& deck);
-    void changeStack(int amount, int wonChips);
-    int getStack() const;
-    void wonHand(int amount);
-    int call(int current_amount);
-    int raise(int current_amount, int previous_raise_amount);
-    void changePosition();
-    int allIn();
-    Position getPosition() const;
-    int payBlind(int bb, int sb);
-
-    static Player::Move move(int amountToCall, int bb);
-
-
-private:
-
-    int chips; // how many chips the player has
-    Position position;
-    std::vector<Card> hand;
+    [[nodiscard]] unsigned int getRaiseAmount(const RoundContext &roundContext) const;
 };
-
 #endif //CPPTUTORIAL_PLAYER_H

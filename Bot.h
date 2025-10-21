@@ -4,41 +4,22 @@
 
 #ifndef CPPTUTORIAL_BOT_H
 #define CPPTUTORIAL_BOT_H
-#include "Card.h"
-#include "Deck.h"
-#include <vector>
+#include <iostream>
+#include "BaseParticipant.h"
 
 // lets just first make the bot a calling station
-class Bot {
+class Bot : public BaseParticipant {
 public:
-    enum class Move {Call, Raise, Fold, Check, AllIn};
-    enum class Position {BB, SB};
 
+    Bot(int startingStack, Position position) : BaseParticipant(startingStack, position) {};
 
-    static const std::unordered_map<Position, std::string> positionToString;
-    static const std::unordered_map<Position, std::string> streetToString;
-    static Move move();
-    void dealHand(Deck &deck);
-    void seeHand() const;
-    void changeStack(int amount, int wonChips);
-    void wonHand(int amount);
-    void changePosition();
-    Position getPosition() const;
-    int payBlind(int bb, int sb);
-    void call(int amount);
+    Action act(RoundContext &roundContext, unsigned int amountToCall) override;
+    ~Bot() override {
+        std::cout << "Bot is gone!" << std::endl;
+    }
 
-    int getStack() const;
+    // [[nodiscard]] unsigned int getRaiseAmount(const RoundContext &roundContext) const;
 
-
-
-
-    // constructor
-    explicit Bot(const int startingStack, Position position): chips(startingStack), position(position) {};
-
-private:
-    int chips;
-    std::vector<Card> hand;
-    Position position;
 };
 
 
