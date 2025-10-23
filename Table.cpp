@@ -10,26 +10,11 @@
 
 #include "RoundContext.h"
 
-BaseParticipant* Table::next(unsigned int& idx) const {
-    idx = (idx + 1) % players.size();
-    return players[idx].get();
-}
-
 // we can return the order the players need to be in quite simply
 std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) const {
     std::vector<BaseParticipant*> order;
-
-    const Position anchor = (street == Street::PreFlop) ? Position::UTG : Position::SB;
-
     // so we just find the idx of that player, and build the order starting from them
-    unsigned int startIdx = 0;
-
-    for (unsigned int i = 0; i < players.size(); ++i) {
-        if (players[i]->getPosition() == anchor) {
-            startIdx = i;
-            break;
-        }
-    }
+    const unsigned int startIdx = getAnchorIndex(street);
 
     // now we build the order beginning from that player
     for (unsigned int i = 0; i < players.size(); ++i) {
@@ -40,13 +25,49 @@ std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) cons
             order.push_back(player);
         }
     }
-    // just check order
+
+    //just check order
     // for (auto &p : order) {
     //     std::cout << positionToString(p->getPosition()) << "\n";
     // }
 
     return order;
 }
+
+
+// we can actually just make this return an integer.
+// if preflop, return the index of the player UTG if it exists, else just SB
+// if not preflop, return the dealerIdx incremented by 1 (account for wrap around)
+unsigned int Table::getAnchorIndex(Street street) const {
+    if (street == Street::PreFlop) {
+        for (unsigned int i = 0; i < players.size(); i++) {
+            if (players[i]->getPosition() == Position::UTG) return i;
+        }
+        return 0; // this will be the small blind player, who is first to act on this street (Heads up)
+    }
+
+    unsigned int anchorIdx = dealerIdx + 1;
+    if (anchorIdx == players.size()) anchorIdx = 0;
+
+    return anchorIdx;
+
+}
+
+
+// we should call this right after construction, fixing the dealer button and assigning it accordingly
+// this assigns the idx
+// IF WE CHANGE INTIAL CONSTRUCTOR POSITIONS, THIS NEEDS TO CHANGE
+// MAYBE WE SHOULD MAKE CONSTRUCTOR POSITIONS ARBITRARY BUT THIS IS POINTLESS
+void Table::assignInitalDealer() {
+    if (players.size() == 2) {
+        dealerIdx = 0;
+        return;
+    }
+
+    // we always begin positions in the game with SB, BB, and so on
+    dealerIdx = players.size() - 1;
+}
+
 
 // so we will actually have the natural seat order define positions
 // for example if we have two players, they swap idx each time, and we

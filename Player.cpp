@@ -19,6 +19,7 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
         << ". Your position: " << positionToString(position)
         << "\n";
 
+
     Action responseAction;
     responseAction.betAmount = 0;
     responseAction.raiseAmount = 0;
@@ -54,15 +55,19 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
                     responseAction.move = Move::Bet;
                     changeStack(responseAction.betAmount, 0);
                     break;
-                case 3:
-                    responseAction.raiseAmount = getRaiseAmount(roundContext);
-                    responseAction.betAmount = amountToCall + responseAction.raiseAmount;
+                case 3: {
+                    // we should treat raise amount as just the new total
+                    const unsigned int newBet = getBetAmount(roundContext);
+                    responseAction.raiseAmount = newBet - amountToCall;
+                    responseAction.betAmount = newBet;
                     changeStack(responseAction.betAmount, 0);
                     responseAction.move = Move::Raise;
                     break;
+                }
                 case 4:
-                    responseAction.raiseAmount = stack;
-                    responseAction.betAmount = amountToCall + responseAction.raiseAmount;
+                    responseAction.raiseAmount = stack - amountToCall;
+                    // responseAction.betAmount = responseAction.raiseAmount;
+                    responseAction.betAmount = stack;
                     changeStack(responseAction.betAmount, 0);
                     responseAction.move = Move::AllIn;
 
@@ -82,15 +87,19 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
                     responseAction.betAmount = amountToCall;
                     changeStack(responseAction.betAmount, 0);
                     break;
-                case 3:
-                    responseAction.raiseAmount = getRaiseAmount(roundContext);
-                    responseAction.betAmount = amountToCall + responseAction.raiseAmount;
+                case 3: {
+                    // we should treat raise amount as just the new total
+                    const unsigned int newBet = getBetAmount(roundContext);
+                    responseAction.raiseAmount = newBet - amountToCall;
+                    responseAction.betAmount = newBet;
                     changeStack(responseAction.betAmount, 0);
                     responseAction.move = Move::Raise;
                     break;
+                }
                 case 4:
-                    responseAction.raiseAmount = stack - responseAction.raiseAmount;
-                    responseAction.betAmount = responseAction.raiseAmount;
+                    responseAction.raiseAmount = stack - amountToCall;
+                    responseAction.betAmount = stack;
+                    // responseAction.betAmount = responseAction.raiseAmount;
                     changeStack(responseAction.betAmount, 0);
                     responseAction.move = Move::AllIn;
                     break;
@@ -108,13 +117,14 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
 }
 
 // recall this is just the amount they are raising to
-unsigned int Player::getRaiseAmount(const RoundContext &roundContext) const {
+unsigned int Player::getBetAmount(const RoundContext &roundContext) const {
     int amount = 0;
 
     while (true) {
-        std::cout << "Enter the amount you would like to raise to: ";
+        std::cout << "Enter the amount you would like to bet. The previous raise was " << roundContext.prevRaise << "\n";
         std::cin >> amount;
-        if (amount < roundContext.bb || amount < roundContext.prevRaise || amount > stack) {
+        const unsigned int raiseAmount = amount - roundContext.prevRaise;
+        if (raiseAmount < roundContext.bb || raiseAmount < roundContext.prevRaise || raiseAmount > stack) {
             std::cout << "Invalid amount! Please try again.";
         } else {
             break;

@@ -18,6 +18,6 @@ public:
         std::cout << "Player is gone!" << std::endl;
     }
 
-    [[nodiscard]] unsigned int getRaiseAmount(const RoundContext &roundContext) const;
+    [[nodiscard]] unsigned int getBetAmount(const RoundContext &roundContext) const;
 };
 #endif //CPPTUTORIAL_PLAYER_H

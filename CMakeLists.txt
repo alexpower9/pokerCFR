@@ -24,3 +24,5 @@ add_executable(CppTutorial main.cpp
         RoundContext.h
         Street.h
 )
+
+add_executable(CppTutorial sandbox.cpp)
