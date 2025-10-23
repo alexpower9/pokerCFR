@@ -13,7 +13,8 @@
 #include "Street.h"
 // we should keep track of number of actions to ensure
 // everyone acts during the street
-// for now, lets just do heads up NLH
+
+// SB, BB, UTG
 class Game {
 
 public:
@@ -25,10 +26,13 @@ public:
           v.push_back(std::make_unique<Player>(stack, Position::SB));
           v.push_back(std::make_unique<Player>(stack, Position::BB));
           v.push_back(std::make_unique<Player>(stack, Position::UTG));
+          v.push_back(std::make_unique<Player>(stack, Position::MP));
           // v.push_back(std::make_unique<Bot>(stack, Position::BB));
           return Table(std::move(v));
-      }())
-    {}
+      }()) {
+        table.assignInitalDealer(); // this should be fine
+        // should be two with three players
+    }
 
 
     enum class HandRanking {HighCard, OnePair, TwoPair, Trips, Straight, Flush, FullHouse, Quads, StraightFlush};

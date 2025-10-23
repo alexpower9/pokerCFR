@@ -19,7 +19,6 @@ public:
 
     // now we can actually advance the next player int
     // in the game class from here
-    BaseParticipant* next(unsigned& idx) const;
     std::vector<BaseParticipant*> getPlayersInOrder(Street street) const;
     void movePositions();
     void beginRound(int bb, int sb, RoundContext &roundContext, std::vector<BaseParticipant *> &playersInOrder);
@@ -29,7 +28,9 @@ public:
         return players;
     }
     std::vector<Card> getFullHand(std::vector<Card> &hand) const; // this essentially joins a player hand with community
-    // cards, sorts, and returns
+    [[nodiscard]] unsigned int getAnchorIndex(Street street) const;
+    void assignInitalDealer();
+    unsigned int getDealerIdx() const { return dealerIdx; };
 
     std::string boardToString() const;
     void flop();
@@ -40,7 +41,7 @@ private:
     std::vector<std::unique_ptr<BaseParticipant>> players;
     std::vector<Card> communityCards;
     Deck deck;
-    unsigned dealerIdx;
+    unsigned int dealerIdx;
 };
 
 #endif //CPPTUTORIAL_TABLE_H

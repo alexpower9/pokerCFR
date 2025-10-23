@@ -11,7 +11,8 @@
 enum class Position {
     SB,
     BB,
-    UTG
+    UTG,
+    MP
 };
 
 inline std::string positionToString(Position position) {
@@ -19,12 +20,13 @@ inline std::string positionToString(Position position) {
         case Position::SB: return "SB";
         case Position::BB: return "BB";
         case Position::UTG: return "UTG";
+        case Position::MP: return "MP";
         default: return "Unknown position!";
     }
 }
 
-static constexpr std::array<Position, 3> ALL_POSITIONS = {
-    Position::SB, Position::BB, Position::UTG
+static constexpr std::array<Position, 4> ALL_POSITIONS = {
+    Position::SB, Position::BB, Position::UTG, Position::MP
 };
 
 #endif //CPPTUTORIAL_POSITION_H

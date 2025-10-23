@@ -89,6 +89,7 @@ int Game::evaluateHands(const std::vector<Card> &hand1, const std::vector<Card> 
 }
 
 // reminder that this will be given the full 7 Card hand, already sorted.
+// I
 u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
     // we will actually use an integer to do this:
     // first 4 bits will be hand ranking
@@ -366,6 +367,7 @@ RoundContext Game::createRoundContextForNextRound(const Street street, const uns
     newContext.street = street;
     newContext.prevRaise = 0;
     newContext.endCode = endCode;
+    newContext.createRoundContributions(table.getPlayersInOrder(street));
     return newContext;
 }
 
@@ -382,7 +384,9 @@ void Game::updateRoundContext(RoundContext &roundContext, Action action, const u
         case Move::Check: roundContext.lastMove = Move::Check; break;
 
         case Move::Bet: roundContext.lastMove = Move::Bet;
+            roundContext.prevRaise = action.raiseAmount;
             roundContext.potSize += action.betAmount; roundContext.roundContributions[playerIdx] += action.betAmount;
+            std::cout << "Bet amount of " << action.betAmount << " was added to player at index" << playerIdx << "\n";
             break;
 
         case Move::Raise: roundContext.lastMove = Move::Raise;
@@ -443,16 +447,16 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
 
             // if a player does not have chips left
             const Action action = players[i]->act(roundContext, roundContext.amountToCall(i, players));
-
-
+            // we need the prev move before updating it
+            const Move previousMove = roundContext.lastMove;
             updateRoundContext(roundContext, action, i);
 
-            if (action.move != Move::Raise) {
-                // when there is a raise, this changes the number of active players
-                counter++;
-            } else {
+            // ugly stuff
+            if (action.move == Move::Raise || (street != Street::PreFlop && action.move == Move::Bet && (previousMove == Move::Check || previousMove == Move::NO_MOVE))) {
                 counter = 0;
                 numberOfPlayers = table.getNumberOfActivePlayers() - 1;
+            } else {
+                counter++;
             }
 
             if (counter == numberOfPlayers) {

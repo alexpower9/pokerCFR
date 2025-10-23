@@ -32,24 +32,13 @@ struct RoundContext {
     unsigned int amountToCall(unsigned int idx, const std::vector<BaseParticipant*> &players) {
         const unsigned int amountContributed = roundContributions[idx];
 
-        unsigned int prevPlayer = idx;
+        unsigned int maxContributed = 0;
 
-        while (true) {
-            if (prevPlayer == 0) {
-                prevPlayer = players.size() - 1;
-            } else {
-                prevPlayer--;
-            }
-
-            if (!players[prevPlayer]->isFolded()) {
-                break;
-            }
+        for (int i = 0; i < players.size(); i++) {
+            maxContributed = std::max(maxContributed, roundContributions[i]);
         }
 
-        // std::cout << "Amount this player has contributed: " << amountContributed << "\n";
-        // std::cout << "Amount previous player has contributed: " << roundContributions[prevPlayer] << "\n";
-        return roundContributions[prevPlayer] - amountContributed;
-
+        return maxContributed - amountContributed;
     }
 };
 
