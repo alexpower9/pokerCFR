@@ -166,8 +166,3 @@ std::vector<Card> Table::getFullHand(std::vector<Card> &hand) const {
 
 
 
-
-
-
-
-
