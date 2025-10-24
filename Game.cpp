@@ -9,7 +9,115 @@
 #include "Table.h"
 #include <vector>
 #include "Move.h"
+#include <cstdint>
+#include <string>
+#include <sstream>
 
+
+std::string rankToString(int r) {
+    // You chose numeric formatting:
+    return std::to_string(r);
+}
+
+// Extractor: 5-bit chunks for up to 5 ranks
+std::vector<int> extractRanks(uint32_t ranking) {
+    static const int shifts[5] = {23, 18, 13, 8, 3};
+    std::vector<int> out;
+    out.reserve(5);
+    for (int i = 0; i < 5; i++) {
+        unsigned int r = (ranking >> shifts[i]) & 0x1F;
+        if (r > 0) out.push_back(r);
+    }
+    return out;
+}
+
+std::string decodeHandRank(uint32_t ranking) {
+    unsigned int category = (ranking >> 28) & 0xF;
+    std::vector<int> ranks = extractRanks(ranking);
+
+    std::ostringstream out;
+
+    switch (category) {
+        case 8: { // Straight Flush
+            out << "Straight Flush, " << rankToString(ranks[0]) << "-high";
+            break;
+        }
+        case 7: { // Quads
+            // ranks[0] = quad rank, ranks[1] = kicker
+            out << "Four of a Kind, " << rankToString(ranks[0])
+                << "s (kicker " << rankToString(ranks[1]) << ")";
+            break;
+        }
+        case 6: { // Full House
+            // ranks[0] = trips rank, ranks[1] = pair rank
+            out << "Full House, " << rankToString(ranks[0])
+                << "s full of " << rankToString(ranks[1]) << "s";
+            break;
+        }
+        case 5: { // Flush (5 kickers stored)
+            out << "Flush, ";
+            for (size_t i = 0; i < ranks.size(); ++i) {
+                out << rankToString(ranks[i]);
+                if (i + 1 < ranks.size()) out << " ";
+            }
+            break;
+        }
+        case 4: { // Straight
+            out << "Straight, " << rankToString(ranks[0]) << "-high";
+            break;
+        }
+        case 3: { // Trips
+            // ranks[0] = trips rank, then 2 kickers
+            out << "Three of a Kind, " << rankToString(ranks[0]) << "s";
+            if (ranks.size() > 1) {
+                out << " (kickers ";
+                for (size_t i = 1; i < ranks.size(); ++i) {
+                    out << rankToString(ranks[i]);
+                    if (i + 1 < ranks.size()) out << ", ";
+                }
+                out << ")";
+            }
+            break;
+        }
+        case 2: { // Two Pair
+            // ranks[0] = high pair, ranks[1] = low pair, ranks[2] = kicker
+            out << "Two Pair, " << rankToString(ranks[0]) << "s and "
+                << rankToString(ranks[1]) << "s (kicker "
+                << rankToString(ranks[2]) << ")";
+            break;
+        }
+        case 1: { // One Pair
+            // ranks[0] = pair, then 3 kickers
+            out << "One Pair, " << rankToString(ranks[0]) << "s";
+            if (ranks.size() > 1) {
+                out << " (kickers ";
+                for (size_t i = 1; i < ranks.size(); ++i) {
+                    out << rankToString(ranks[i]);
+                    if (i + 1 < ranks.size()) out << ", ";
+                }
+                out << ")";
+            }
+            break;
+        }
+        case 0: { // High Card
+            // ranks[0] = highest, then next 4 kickers
+            out << "High Card " << rankToString(ranks[0]);
+            if (ranks.size() > 1) {
+                out << " (";
+                for (size_t i = 1; i < ranks.size(); ++i) {
+                    out << rankToString(ranks[i]);
+                    if (i + 1 < ranks.size()) out << ", ";
+                }
+                out << ")";
+            }
+            break;
+        }
+        default:
+            out << "Unknown Hand";
+    }
+
+    return out.str();
+}
 
 const std::unordered_map<u_int32_t, std::string> Game::rankToString = {
     {0, "HighCard"},
@@ -62,34 +170,32 @@ void Game::runGame() {
     // }
 }
 
-
-
 // maybe return 3 for a tie
-int Game::evaluateHands(const std::vector<Card> &hand1, const std::vector<Card> &hand2) {
-    std::vector<Card> combined1 = hand1;
-    std::vector<Card> combined2 = hand2;
-    //
-    // combined1.insert(combined1.end(), communityCards.begin(), communityCards.end());
-    // combined2.insert(combined2.end(), communityCards.begin(), communityCards.end());
-
-    std::sort(combined1.begin(), combined1.end());
-    std::sort(combined2.begin(), combined2.end());
-
-
-    const u_int32_t handRank1 = classifyHand(hand1);
-    const u_int32_t handRank2 = classifyHand(hand2);
-
-    if (handRank1 > handRank2) {
-        return 1;
-    } else if (handRank2 > handRank1) {
-        return 2;
-    } else {
-        return 3;
-    }
-}
+// int Game::evaluateHands(const std::vector<Card> &hand1, const std::vector<Card> &hand2) {
+//     std::vector<Card> combined1 = hand1;
+//     std::vector<Card> combined2 = hand2;
+//     //
+//     // combined1.insert(combined1.end(), communityCards.begin(), communityCards.end());
+//     // combined2.insert(combined2.end(), communityCards.begin(), communityCards.end());
+//
+//     std::sort(combined1.begin(), combined1.end());
+//     std::sort(combined2.begin(), combined2.end());
+//
+//
+//     const u_int32_t handRank1 = classifyHand(hand1);
+//     const u_int32_t handRank2 = classifyHand(hand2);
+//
+//     if (handRank1 > handRank2) {
+//         return 1;
+//     } else if (handRank2 > handRank1) {
+//         return 2;
+//     } else {
+//         return 3;
+//     }
+// }
 
 // reminder that this will be given the full 7 Card hand, already sorted.
-// I
+// THIS IS MY OLD VERSION, WHICH WAS TOO SLOW
 u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
     // we will actually use an integer to do this:
     // first 4 bits will be hand ranking
@@ -200,11 +306,12 @@ u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
     }
 
     //trips
-    int tripsRank;
+    int tripsRank = 0;;
     for (int i = 0; i < 5; i++) {
         if (hand[i].getRank() == hand[i + 1].getRank() && hand[i + 1].getRank() == hand[i + 2].getRank()) {
             trips = true;
             tripsRank = hand[i].getRank();
+            break;
            }
     }
 
@@ -213,23 +320,23 @@ u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
     int pairRank2 = 0;
     for (int i = 0; i < hand.size() - 1; i++) {
         // pair found, check if we already found a pair though
+        if (hand[i].getRank() == tripsRank) continue;
+
         if (hand[i].getRank() == hand[i + 1].getRank()) {
             if (pairRank1 == 0) {
                 pairRank1 = hand[i].getRank();
-            } else {
+            } else if (pairRank1 != 0 && hand[i].getRank() != pairRank1){
                 // this must be the second pair
                 pairRank2 = hand[i].getRank();
             }
         }
     }
 
-    // now we check for full house
-    if (trips && pairRank1 != 0 && pairRank1 != tripsRank) {
+    // now we return full house
+    if (tripsRank != 0 && pairRank1 != 0) {
         ranking |= (6 & 0xF) << 28;
         ranking |= (tripsRank & 0x1F) << 23;
         ranking |= (pairRank1 & 0x1F) << 18; // no clue if this is actually a thing
-        // we still need the other high card here
-
         return ranking;
     }
 
@@ -497,7 +604,7 @@ void Game::handleWinner(const RoundContext &roundContext) const {
     auto [winningPlayer, rank] = handRankings.front();
     winningPlayer->changeStack(roundContext.potSize, 1);
 
-    std::cout << "Player won with the hand " << winningPlayer->getHand() << "\n";
+    std::cout << "Player won with " <<  decodeHandRank(rank) << "\n";
 }
 
 inline bool Game::onePlayerLeft() const {
@@ -517,10 +624,3 @@ bool Game::checkShowdown() const {
 
     return (activePlayersCount > 1 && activePlayersCount == allInCount);
 }
-
-
-
-
-
-
-
