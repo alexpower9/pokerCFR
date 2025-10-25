@@ -451,16 +451,8 @@ RoundContext Game::newHandContext(const int bb, const int sb, const std::vector<
     newContext.prevRaise = 0;
     newContext.createRoundContributions(players);
 
-    // post blinds here
-    // for (auto &p:players) {
-    //     if (p->getPosition() == Position::SB) {
-    //         newContext.roundContributions[]
-    //         p->changeStack(sb, 0);
-    //     } else if (p->getPosition() == Position::BB) {
-    //         p->changeStack(bb, 0);
-    //     }
-    // }
-
+    // note this will cause unsigned int overflow if the player has busted
+    // for this use case we can leave it for now
     for (int i = 0; i < players.size(); i++) {
         if (players[i]->getPosition() == Position::SB) {
             newContext.roundContributions[i] += sb;
@@ -554,7 +546,13 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
         for (int i = 0; i < players.size() && !onePlayerLeft(); i++) {
 
             // if the player has folded, or if they have no chips, we can skip their turn
-            if (players[i]->isFolded() || players[i]->getStack() == 0) continue;
+            if (players[i]->isFolded() || players[i]->getStack() == 0) {
+                // just to check
+                if (players[i]->getStack() == 0) {
+                    std::cout << "This player has no chips left\n";
+                }
+                continue;
+            }
 
             if (dynamic_cast<Player*>(players[i])) {
                 // only see the players hand, not the bots.
@@ -568,7 +566,7 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
             updateRoundContext(roundContext, action, i);
 
             // ugly stuff
-            if (action.move == Move::Raise || (street != Street::PreFlop && action.move == Move::Bet && (previousMove == Move::Check || previousMove == Move::NO_MOVE))) {
+            if (action.move == Move::Raise || action.move == Move::AllIn || (street != Street::PreFlop && action.move == Move::Bet && (previousMove == Move::Check || previousMove == Move::NO_MOVE))) {
                 counter = 0;
                 numberOfPlayers = table.getNumberOfActivePlayers() - 1;
             } else {
@@ -613,11 +611,11 @@ void Game::handleWinner(const RoundContext &roundContext) const {
     auto [winningPlayer, rank] = handRankings.front();
     winningPlayer->changeStack(roundContext.potSize, 1);
 
-    std::cout << "Player won with " <<  decodeHandRank(rank) << "\n";
+    std::cout << winningPlayer->getName() << " won with " <<  decodeHandRank(rank) << "\n";
 }
 
 inline bool Game::onePlayerLeft() const {
-    return (table.getNumberOfActivePlayers() == 1);
+    return (table.getNumberOfActivePlayers() == 1); // getActivePlayers returns count of players not folded
 }
 
 bool Game::checkShowdown() const {
@@ -632,4 +630,4 @@ bool Game::checkShowdown() const {
     }
 
     return (activePlayersCount > 1 && activePlayersCount == allInCount);
-}
+};
