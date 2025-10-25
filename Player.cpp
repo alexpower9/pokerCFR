@@ -82,11 +82,15 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
                     responseAction.move = Move::Fold;
                     hasFolded = true;
                     break;
-                case 2:
+                case 2: {
+                    // we need to check if the player has enough to call here
                     responseAction.move = Move::Call;
+
+                    if (amountToCall > stack) amountToCall = stack;
                     responseAction.betAmount = amountToCall;
                     changeStack(responseAction.betAmount, 0);
                     break;
+                }
                 case 3: {
                     // we should treat raise amount as just the new total
                     const unsigned int newBet = getBetAmount(roundContext);
