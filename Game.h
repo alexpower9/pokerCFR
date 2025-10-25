@@ -23,20 +23,19 @@ public:
       smallBlind(sb),
       table([&] {
           std::vector<std::unique_ptr<BaseParticipant>> v;
-          v.push_back(std::make_unique<Player>(stack, Position::SB));
-          v.push_back(std::make_unique<Player>(stack, Position::BB));
-          v.push_back(std::make_unique<Player>(stack, Position::UTG));
-          v.push_back(std::make_unique<Player>(stack, Position::MP));
+          v.push_back(std::make_unique<Player>(stack, Position::SB, "Alex"));
+          v.push_back(std::make_unique<Player>(stack, Position::BB, "Skip"));
+          v.push_back(std::make_unique<Player>(stack, Position::UTG, "Jones"));
+          // v.push_back(std::make_unique<Player>(stack, Position::MP));
           // v.push_back(std::make_unique<Bot>(stack, Position::BB));
           return Table(std::move(v));
       }()) {
-        table.assignInitalDealer(); // this should be fine
+        table.assignInitialDealer(); // this should be fine
         // should be two with three players
     }
 
 
     enum class HandRanking {HighCard, OnePair, TwoPair, Trips, Straight, Flush, FullHouse, Quads, StraightFlush};
-    static const std::unordered_map<u_int32_t, std::string> rankToString;
 
 
     // deal the cards out to all the players
@@ -58,12 +57,14 @@ public:
     void printPositions() const;
 
     RoundContext createRoundContextForNextRound(Street street, unsigned int potSize, int endCode) const;
-    RoundContext newHandContext(const std::vector<BaseParticipant*> &players) const;
+    RoundContext newHandContext(int bb, int sb, const std::vector<BaseParticipant*> &players) const;
     void updateRoundContext(RoundContext &roundContext, Action action, unsigned int playerIdx) const;
     void playStreet(Street street, RoundContext &roundContext);
     void handleWinner(const RoundContext &roundContext) const;
     inline bool onePlayerLeft() const;
     bool checkShowdown() const;
+    static std::string decodeHandRank(uint32_t ranking);
+
 
 
 private:

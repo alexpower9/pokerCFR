@@ -31,7 +31,7 @@ std::vector<int> extractRanks(uint32_t ranking) {
     return out;
 }
 
-std::string decodeHandRank(uint32_t ranking) {
+std::string Game::decodeHandRank(uint32_t ranking) {
     unsigned int category = (ranking >> 28) & 0xF;
     std::vector<int> ranks = extractRanks(ranking);
 
@@ -119,19 +119,6 @@ std::string decodeHandRank(uint32_t ranking) {
     return out.str();
 }
 
-const std::unordered_map<u_int32_t, std::string> Game::rankToString = {
-    {0, "HighCard"},
-    {1, "Pair"},
-    {2, "TwoPair"},
-    {3, "Trips"},
-    {4, "Straight"},
-    {5, "Flush"},
-    {6, "FullHouse"},
-    {7, "Quads"},
-    {8, "StraightFlush"}
-};
-
-
 void Game::reset_deck() {
     deck = Deck::create();
     deck.shuffle();
@@ -147,27 +134,30 @@ void Game::runGame() {
     // playStreet(Flop)... and so on
     // determine winner
     // update stacks, run it back
-    std::cout << "New hand is beginning!\n";
-    // while (true) {
-    std::vector<BaseParticipant*> initialOrder = table.getPlayersInOrder(Street::PreFlop);
-    RoundContext roundContext = newHandContext(initialOrder);
-    table.beginRound(bigBlind, smallBlind, roundContext, initialOrder); // new deck, deal 2 cards
 
 
-    for (int i = 0; i < ALL_STREETS.size(); i++) {
-        const Street street = ALL_STREETS[i];
-        std::cout << "Current street is " << streetToString(street) << "\n";
-        playStreet(street, roundContext);
-        if (roundContext.endCode == 1 || roundContext.endCode == 2) break;
+    while (true) {
+        std::cout << "\nNew hand is beginning!\n\n";
+        std::vector<BaseParticipant*> initialOrder = table.getPlayersInOrder(Street::PreFlop);
+        RoundContext roundContext = newHandContext(bigBlind, smallBlind, initialOrder);
+        table.beginRound(); // new deck, deal 2 cards
 
-        if (ALL_STREETS[i] != Street::River) {
-            roundContext = createRoundContextForNextRound(ALL_STREETS[i + 1], roundContext.potSize, roundContext.endCode);
+        for (int i = 0; i < ALL_STREETS.size(); i++) {
+            const Street street = ALL_STREETS[i];
+            std::cout << "Current street is " << streetToString(street) << "\n";
+            playStreet(street, roundContext);
+            if (roundContext.endCode == 1 || roundContext.endCode == 2) break; // very dumb
+
+            if (ALL_STREETS[i] != Street::River) {
+                roundContext = createRoundContextForNextRound(ALL_STREETS[i + 1], roundContext.potSize, roundContext.endCode);
+            }
         }
-    }
 
-    // we are going to need the roundContext endCode (but not really)
-    handleWinner(roundContext);
-    // }
+        // we are going to need the roundContext endCode (but not really)
+        handleWinner(roundContext);
+        table.moveDealerButton(); // this is not done well
+        table.movePositions();
+    }
 }
 
 // maybe return 3 for a tie
@@ -266,9 +256,12 @@ u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
                     // RETURN HERE
                     // return std::make_tuple(Game::HandRanking::StraightFlush, flushCards[i-4].getRank());
                     ranking |= (8 & 0xF) << 28;
-                    ranking |= (flushCards[i - 4].getRank() & 0x1F) << 23;
+                    ranking |= (flushCards[i - 3].getRank() & 0x1F) << 23;
+                    // std::cout << "Rank of straight flush: " <<flushCards[i - 3].getRank() << "\n";
                     return ranking;
-                } else if (run == 4 && hasAce(hand) && hand[i + 1].getRank() == 2) {
+                }
+
+                if (run == 4 && hasAce(hand) && flushCards[i + 1].getRank() == 2) {
                     // wheel straight
                     ranking |= (8 & 0xF) << 28;
                     ranking |= (5 & 0x1F) << 23;
@@ -357,9 +350,11 @@ u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
             if (run == 5) {
                 // also return the rank here
                 ranking |= (4 & 0xF) << 28;
-                ranking |= (hand[i - 4].getRank() & 0x1F) << 23;
+                ranking |= (hand[i - 3].getRank() & 0x1F) << 23;
                 return ranking;
-            } else if (run == 4 && hasAce(hand) && hand[i + 1].getRank() == 2) {
+            }
+
+            if (run == 4 && hasAce(hand) && hand[i + 1].getRank() == 2) {
                 // wheel ace
                 ranking |= (4 & 0xF) << 28;
                 ranking |= (5 & 0x1F) << 23;
@@ -438,13 +433,6 @@ u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
 
 }
 
-// void Game::seeBoard() const {
-//     for (Card card: communityCards) {
-//         std::cout << card.toString() << " ";
-//     }
-//     std::cout << "\n";
-// }
-
 // check for an ace
 bool Game::hasAce(const std::vector<Card> &hand) {
     if (hand[0].getRank() == 14) {
@@ -454,7 +442,7 @@ bool Game::hasAce(const std::vector<Card> &hand) {
     return false;
 }
 
-RoundContext Game::newHandContext(const std::vector<BaseParticipant*> &players) const {
+RoundContext Game::newHandContext(const int bb, const int sb, const std::vector<BaseParticipant*> &players) const {
     RoundContext newContext;
     newContext.bb = bigBlind;
     newContext.lastMove = Move::Call; // COULD BE BAD
@@ -462,6 +450,27 @@ RoundContext Game::newHandContext(const std::vector<BaseParticipant*> &players) 
     newContext.street = Street::PreFlop;
     newContext.prevRaise = 0;
     newContext.createRoundContributions(players);
+
+    // post blinds here
+    // for (auto &p:players) {
+    //     if (p->getPosition() == Position::SB) {
+    //         newContext.roundContributions[]
+    //         p->changeStack(sb, 0);
+    //     } else if (p->getPosition() == Position::BB) {
+    //         p->changeStack(bb, 0);
+    //     }
+    // }
+
+    for (int i = 0; i < players.size(); i++) {
+        if (players[i]->getPosition() == Position::SB) {
+            newContext.roundContributions[i] += sb;
+            players[i]->changeStack(sb, 0);
+        } else if (players[i]->getPosition() == Position::BB) {
+            newContext.roundContributions[i] += bb;
+            players[i]->changeStack(bb, 0);
+        }
+    }
+
     return newContext;
 }
 
