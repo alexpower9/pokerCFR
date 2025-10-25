@@ -7,6 +7,7 @@
 #include <vector>
 #include "BaseParticipant.h"
 #include "Deck.h"
+#include <iostream>
 enum class Street;
 // we can use the table to manage the players and the positions of everything
 // set as setting player positions and such as it is much easier this way
@@ -21,7 +22,7 @@ public:
     // in the game class from here
     std::vector<BaseParticipant*> getPlayersInOrder(Street street) const;
     void movePositions();
-    void beginRound(int bb, int sb, RoundContext &roundContext, std::vector<BaseParticipant *> &playersInOrder);
+    void beginRound();
     // void postBlinds(int bb, int sb) const;
     unsigned int getNumberOfActivePlayers() const; // this might be able to get deleted
     [[nodiscard]] const std::vector<std::unique_ptr<BaseParticipant>>& getPlayers() const {
@@ -29,8 +30,10 @@ public:
     }
     std::vector<Card> getFullHand(std::vector<Card> &hand) const; // this essentially joins a player hand with community
     [[nodiscard]] unsigned int getAnchorIndex(Street street) const;
-    void assignInitalDealer();
+    void assignInitialDealer() const;
     unsigned int getDealerIdx() const { return dealerIdx; };
+    void moveDealerButton() const { std::cout <<"Moving dealer button\n"; dealerIdx++; };
+    std::vector<Position> getPositionsForNumPlayers(unsigned int numPlayers) const;
 
     std::string boardToString() const;
     void flop();
@@ -41,7 +44,7 @@ private:
     std::vector<std::unique_ptr<BaseParticipant>> players;
     std::vector<Card> communityCards;
     Deck deck;
-    unsigned int dealerIdx;
+    mutable unsigned int dealerIdx;
 };
 
 #endif //CPPTUTORIAL_TABLE_H

@@ -16,11 +16,11 @@ int main() {
     Game game {10, 5, 1000};
     game.runGame();
 
-    // std::vector<Card> hand = {Card::create(14, Card::Spades), Card::create(13, Card::Spades)};
+    // std::vector<Card> hand = {Card::create(14, Card::Hearts), Card::create(2, Card::Spades)};
     // std::vector<Card> communityCards = {
-    //     Card::create(12, Card::Spades),
-    //     Card::create(11, Card::Spades),
-    //     Card::create(10, Card::Spades),
+    //     Card::create(3, Card::Spades),
+    //     Card::create(4, Card::Spades),
+    //     Card::create(5, Card::Spades),
     //     Card::create(9, Card::Diamonds),
     //     Card::create(11, Card::Hearts)
     // };
@@ -34,7 +34,7 @@ int main() {
     //
     // uint32_t handRank = Game::classifyHand(communityCards);
     //
-    // std::cout << "Hand rank is " << decodeHandRank(handRank) << std::endl;
+    // std::cout << "Hand rank is " << Game::decodeHandRank(handRank) << std::endl;
 
     return 0;
 }

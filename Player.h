@@ -5,13 +5,14 @@
 #ifndef CPPTUTORIAL_PLAYER_H
 #define CPPTUTORIAL_PLAYER_H
 #include <iostream>
+#include <utility>
 #include "BaseParticipant.h"
 #include "Action.h"
 
 
 class Player : public BaseParticipant {
 public:
-    Player(int startingStack, Position position) : BaseParticipant(startingStack, position) {};
+    Player(int startingStack, Position position, std::string name) : BaseParticipant(startingStack, position, std::move(name)) {};
 
     Action act(RoundContext& roundContext, unsigned int amountToCall) override;
     ~Player() override {

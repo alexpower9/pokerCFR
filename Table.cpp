@@ -12,10 +12,11 @@
 
 // we can return the order the players need to be in quite simply
 std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) const {
+
     std::vector<BaseParticipant*> order;
     // so we just find the idx of that player, and build the order starting from them
     const unsigned int startIdx = getAnchorIndex(street);
-
+    // std::cout << "The startIdx is: " << startIdx << "\n";
     // now we build the order beginning from that player
     for (unsigned int i = 0; i < players.size(); ++i) {
         const unsigned int idx = (startIdx + i) % players.size();
@@ -28,9 +29,11 @@ std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) cons
 
     //just check order
     // for (auto &p : order) {
-    //     std::cout << positionToString(p->getPosition()) << "\n";
+    //     std::cout << positionToString(p->getPosition()) << " ";
     // }
 
+
+    std::cout << "\n";
     return order;
 }
 
@@ -38,17 +41,20 @@ std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) cons
 // we can actually just make this return an integer.
 // if preflop, return the index of the player UTG if it exists, else just SB
 // if not preflop, return the dealerIdx incremented by 1 (account for wrap around)
+// If we begin with the dealer idx off by 1, then increment it each time, this should be fine
 unsigned int Table::getAnchorIndex(Street street) const {
+    // std::cout << "The dealer idx for this round is: " << dealerIdx << "\n";
     if (street == Street::PreFlop) {
         for (unsigned int i = 0; i < players.size(); i++) {
-            if (players[i]->getPosition() == Position::UTG) return i;
+            if (players[i]->getPosition() == Position::UTG) {
+                return i;
+            }
         }
         return 0; // this will be the small blind player, who is first to act on this street (Heads up)
     }
 
     unsigned int anchorIdx = dealerIdx + 1;
     if (anchorIdx == players.size()) anchorIdx = 0;
-
     return anchorIdx;
 
 }
@@ -57,15 +63,14 @@ unsigned int Table::getAnchorIndex(Street street) const {
 // we should call this right after construction, fixing the dealer button and assigning it accordingly
 // this assigns the idx
 // IF WE CHANGE INTIAL CONSTRUCTOR POSITIONS, THIS NEEDS TO CHANGE
-// MAYBE WE SHOULD MAKE CONSTRUCTOR POSITIONS ARBITRARY BUT THIS IS POINTLESS
-void Table::assignInitalDealer() {
+void Table::assignInitialDealer() const {
     if (players.size() == 2) {
         dealerIdx = 0;
         return;
     }
 
     // we always begin positions in the game with SB, BB, and so on
-    dealerIdx = players.size() - 1;
+    dealerIdx = players.size() - 1; // so if we have SB, BB, UTG, then BB will be dealer,
 }
 
 
@@ -74,13 +79,23 @@ void Table::assignInitalDealer() {
 // loop through the enum and reassign positions. Since we also have the button
 // we should keep track of that too
 void Table::movePositions() {
-    dealerIdx = (dealerIdx + 1) % players.size();
-    // now we should loop through the
-    for (unsigned i = 0; i < players.size(); i++) {
-        // so we can make all positions relative to the dealer
-        unsigned const relative = (i - dealerIdx + players.size()) % players.size();
-        players[i].get()->setPosition(ALL_POSITIONS[relative]); // CHECK THIS!
+
+    // unfold everyone at the start of the round
+    for (auto &p:players) {
+        p->unfold();
     }
+
+    std::vector<Position> newPositions(players.size());
+    for (size_t i = 0; i < players.size(); ++i)
+        newPositions[i] = players[(i + players.size() - 1) % players.size()]->getPosition();
+
+    for (size_t i = 0; i < players.size(); ++i)
+        players[i]->setPosition(newPositions[i]);
+
+    // std::cout << "here is the order for now round:\n";
+    // for (const auto &p: players) {
+    //     std::cout << positionToString(p->getPosition()) << " ";
+    // }
 }
 
 unsigned int Table::getNumberOfActivePlayers() const {
@@ -95,29 +110,17 @@ unsigned int Table::getNumberOfActivePlayers() const {
 
 
 // new deck, shuffle, deal everyone two cards
-void Table::beginRound(int bb, int sb, RoundContext &roundContext, std::vector<BaseParticipant*> &playersInOrder) {
+void Table::beginRound() {
     deck = Deck::create();
     deck.shuffle();
 
-    // first clear the hands and ensure everyone is not folded
-    for (auto &p:players) {
-        p->resetHand();
-    }
-
     for (auto &p : players) {
+        p->resetHand();
         p->addCard(deck.draw());
         p->addCard(deck.draw());
     }
 
-    for (int i = 0; i < players.size(); i++) {
-        if (playersInOrder[i]->getPosition() == Position::BB) {
-            roundContext.roundContributions[i] += bb;
-            playersInOrder[i]->changeStack(bb, 0);
-        } else if (playersInOrder[i]->getPosition() == Position::SB) {
-            roundContext.roundContributions[i] += sb;
-            playersInOrder[i]->changeStack(sb, 0);
-        }
-    }
+    communityCards.clear();
 }
 
 // we should deprecate this when we get the chance
