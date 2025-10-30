@@ -26,9 +26,11 @@ public:
     void setPosition(Position position);
     Position getPosition() const { return position; };
     bool isFolded() const { return hasFolded; };
+    bool hasWentAllIn() const { return isAllIn; };
     void addCard(Card card);
     void resetHand();
     void unfold() { hasFolded = false; }
+    void unAllIn() { isAllIn = false; };
     std::vector<Card> getCards() const;
     std::string getName() {return name;};
     [[nodiscard]] inline unsigned int getStack() const { return stack; };
@@ -38,6 +40,7 @@ protected:
     std::vector<Card> hand;
     Position position;
     bool hasFolded = false;
+    bool isAllIn = false;
     std::string name;
 };
 

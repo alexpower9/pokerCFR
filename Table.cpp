@@ -45,16 +45,25 @@ std::vector<BaseParticipant*> Table::getPlayersInOrder(const Street street) cons
 unsigned int Table::getAnchorIndex(Street street) const {
     // std::cout << "The dealer idx for this round is: " << dealerIdx << "\n";
     if (street == Street::PreFlop) {
-        for (unsigned int i = 0; i < players.size(); i++) {
-            if (players[i]->getPosition() == Position::UTG) {
-                return i;
+        // if its heads up, we anchor aread the BB
+        if (players.size() == 2) {
+            for (unsigned int i = 0; i < players.size(); i++) {
+                if (players[i]->getPosition() == Position::BB) {
+                    return i;
+                }
             }
         }
-        return 0; // this will be the small blind player, who is first to act on this street (Heads up)
+
+        // if more than 2 players, just take the player after the BB
+        for (unsigned int i = 0; i < players.size(); i++) {
+            if (players[i]->getPosition() == Position::BB) {
+                return (i + 1) % players.size();
+            }
+        }
     }
 
-    unsigned int anchorIdx = dealerIdx + 1;
-    if (anchorIdx == players.size()) anchorIdx = 0;
+    // now we can just make the player after the dealer the first to act
+    unsigned int anchorIdx = (dealerIdx + 1) % players.size();
     return anchorIdx;
 
 }
@@ -79,30 +88,92 @@ void Table::assignInitialDealer() const {
 // loop through the enum and reassign positions. Since we also have the button
 // we should keep track of that too
 void Table::movePositions() {
+    removeBustedPlayers();
 
-    // unfold everyone at the start of the round
-    for (auto &p:players) {
-        p->unfold();
+    if (players.size() < 2) {
+        // we need to implement logic for when the game ends
+        return;
     }
 
-    std::vector<Position> newPositions(players.size());
-    for (size_t i = 0; i < players.size(); ++i)
-        newPositions[i] = players[(i + players.size() - 1) % players.size()]->getPosition();
+    dealerIdx = (dealerIdx + 1) % players.size();
+    assignPositionsFromDealer();
+    // unfold everyone at the start of the round
+    for (const auto &p:players) {
+        p->unfold();
+        p->unAllIn();
+    }
 
-    for (size_t i = 0; i < players.size(); ++i)
-        players[i]->setPosition(newPositions[i]);
-
-    // std::cout << "here is the order for now round:\n";
-    // for (const auto &p: players) {
-    //     std::cout << positionToString(p->getPosition()) << " ";
-    // }
 }
+
+void Table::removeBustedPlayers() {
+    size_t removedBeforeDealer = 0;
+    for (size_t i = 0; i < dealerIdx && i < players.size(); ++i) {
+        if (players[i]->getStack() == 0) {
+            removedBeforeDealer++;
+        }
+    }
+
+    // Check if dealer is busted
+    bool dealerBusted = (dealerIdx < players.size() && players[dealerIdx]->getStack() == 0);
+
+    // Remove busted players
+    players.erase(
+        std::remove_if(players.begin(), players.end(),
+            [](const auto& p) { return p->getStack() == 0; }),
+        players.end()
+    );
+
+    // Adjust dealer index
+    dealerIdx -= removedBeforeDealer;
+    if (dealerBusted) {
+        // adjust by one less since we will increment in movePositions
+        if (dealerIdx > 0) dealerIdx--;
+    }
+
+    if (dealerIdx >= players.size() && !players.empty()) {
+        dealerIdx = 0;
+    }
+}
+
+void Table::assignPositionsFromDealer() {
+    size_t numPlayers = players.size();
+
+    if (numPlayers == 2) {
+        players[dealerIdx]->setPosition(Position::SB);
+        players[(dealerIdx + 1) % numPlayers]->setPosition(Position::BB);
+    } else if (numPlayers == 3) {
+        players[dealerIdx]->setPosition(Position::BUTTON);
+        players[(dealerIdx + 1) % numPlayers]->setPosition(Position::SB);
+        players[(dealerIdx + 2) % numPlayers]->setPosition(Position::BB);
+    } else if (numPlayers == 4){
+        players[dealerIdx]->setPosition(Position::BUTTON);
+        players[(dealerIdx + 1) % numPlayers]->setPosition(Position::SB);
+        players[(dealerIdx + 2) % numPlayers]->setPosition(Position::BB);
+        players[(dealerIdx + 3) % numPlayers]->setPosition(Position::UTG);
+
+    } else if (numPlayers == 5) {
+        players[dealerIdx]->setPosition(Position::BUTTON);
+        players[(dealerIdx + 1) % numPlayers]->setPosition(Position::SB);
+        players[(dealerIdx + 2) % numPlayers]->setPosition(Position::BB);
+        players[(dealerIdx + 3) % numPlayers]->setPosition(Position::UTG);
+        players[(dealerIdx + 4) % numPlayers]->setPosition(Position::MP);
+    } else {
+        players[dealerIdx]->setPosition(Position::BUTTON);
+        players[(dealerIdx + 1) % numPlayers]->setPosition(Position::SB);
+        players[(dealerIdx + 2) % numPlayers]->setPosition(Position::BB);
+        players[(dealerIdx + 3) % numPlayers]->setPosition(Position::UTG);
+        players[(dealerIdx + 4) % numPlayers]->setPosition(Position::MP);
+        players[(dealerIdx + 5) % numPlayers]->setPosition(Position::CO);
+    }
+}
+
+
 
 unsigned int Table::getNumberOfActivePlayers() const {
     unsigned int total = 0;
 
     for (auto &p : players) {
-        if (!p->isFolded()) total += 1;
+        if (!p->isFolded() && p->getStack() != 0) total += 1;
     }
 
     return total;

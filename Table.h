@@ -22,6 +22,8 @@ public:
     // in the game class from here
     std::vector<BaseParticipant*> getPlayersInOrder(Street street) const;
     void movePositions();
+    void removeBustedPlayers();
+    void assignPositionsFromDealer();
     void beginRound();
     // void postBlinds(int bb, int sb) const;
     unsigned int getNumberOfActivePlayers() const; // this might be able to get deleted
@@ -32,8 +34,12 @@ public:
     [[nodiscard]] unsigned int getAnchorIndex(Street street) const;
     void assignInitialDealer() const;
     unsigned int getDealerIdx() const { return dealerIdx; };
-    void moveDealerButton() const { std::cout <<"Moving dealer button\n"; dealerIdx++; };
     std::vector<Position> getPositionsForNumPlayers(unsigned int numPlayers) const;
+
+
+    // this will be for awarding the chips at the end
+    std::vector<BaseParticipant*> determineWinners(std::vector<BaseParticipant*> eligiblePlayers);
+
 
     std::string boardToString() const;
     void flop();
