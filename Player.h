@@ -16,7 +16,7 @@ public:
 
     Action act(RoundContext& roundContext, unsigned int amountToCall) override;
     ~Player() override {
-        std::cout << "Player is gone!" << std::endl;
+        std::cout << getName() << " is gone!" << std::endl;
     }
 
     [[nodiscard]] unsigned int getBetAmount(const RoundContext &roundContext) const;

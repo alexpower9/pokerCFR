@@ -173,7 +173,7 @@ unsigned int Table::getNumberOfActivePlayers() const {
     unsigned int total = 0;
 
     for (auto &p : players) {
-        if (!p->isFolded() && p->getStack() != 0) total += 1;
+        if (!p->isFolded()) total += 1;
     }
 
     return total;
