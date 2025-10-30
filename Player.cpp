@@ -54,6 +54,9 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
                     responseAction.betAmount = roundContext.bb;
                     responseAction.move = Move::Bet;
                     changeStack(responseAction.betAmount, 0);
+
+
+
                     break;
                 case 3: {
                     // we should treat raise amount as just the new total
@@ -114,6 +117,13 @@ Action Player::act(RoundContext &roundContext, unsigned int amountToCall) {
         }
 
         break;
+    }
+
+    // cheap fix to return AllIn when the amount the player has called leaves their stack to 0
+    if (getStack() == 0) {
+        responseAction.move = Move::AllIn;
+        isAllIn = true;
+        std::cout << "Player has jammed\n";
     }
 
     return responseAction;

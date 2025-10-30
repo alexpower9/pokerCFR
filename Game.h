@@ -5,12 +5,14 @@
 #ifndef CPPTUTORIAL_GAME_H
 #define CPPTUTORIAL_GAME_H
 #include <vector>
+#include <unordered_set>
 #include "Bot.h"
 #include "Player.h"
 #include "Deck.h"
 #include "Card.h"
 #include "Table.h"
 #include "Street.h"
+#include "PotManager.h"
 // we should keep track of number of actions to ensure
 // everyone acts during the street
 
@@ -24,8 +26,8 @@ public:
       table([&] {
           std::vector<std::unique_ptr<BaseParticipant>> v;
           v.push_back(std::make_unique<Player>(stack, Position::SB, "Alex"));
-          v.push_back(std::make_unique<Player>(stack, Position::BB, "Skip"));
-          v.push_back(std::make_unique<Player>(stack, Position::UTG, "Jones"));
+          v.push_back(std::make_unique<Player>(stack - 900, Position::BB, "Skip"));
+          v.push_back(std::make_unique<Player>(stack, Position::BUTTON, "Jones"));
           // v.push_back(std::make_unique<Player>(stack, Position::MP));
           // v.push_back(std::make_unique<Bot>(stack, Position::BB));
           return Table(std::move(v));
@@ -57,14 +59,17 @@ public:
     void printPositions() const;
 
     RoundContext createRoundContextForNextRound(Street street, unsigned int potSize, int endCode) const;
-    RoundContext newHandContext(int bb, int sb, const std::vector<BaseParticipant*> &players) const;
-    void updateRoundContext(RoundContext &roundContext, Action action, unsigned int playerIdx) const;
-    void playStreet(Street street, RoundContext &roundContext);
-    void handleWinner(const RoundContext &roundContext) const;
+    RoundContext newHandContext(int bb, int sb, const std::vector<BaseParticipant*> &players, PotManager &pot_manager) const;
+    void updateRoundContext(RoundContext &roundContext, Action action, BaseParticipant* player) const;
+    bool playStreet(Street street, RoundContext &roundContext, PotManager &potManager);
+    void handleWinner(const PotManager &potManager) const;
     inline bool onePlayerLeft() const;
     bool checkShowdown() const;
+    bool isBettingComplete(const std::vector<BaseParticipant*>& players, const std::unordered_set<BaseParticipant*>& hasActed,
+                              const RoundContext& roundContext) const;
     static std::string decodeHandRank(uint32_t ranking);
 
+    void awardPot(const Pot& pot, const std::vector<BaseParticipant*>& winners) const;
 
 
 private:

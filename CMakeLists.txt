@@ -23,4 +23,6 @@ add_executable(CppTutorial main.cpp
         Table.cpp
         RoundContext.h
         Street.h
+        PotManager.h
+        PotManager.cpp
 )

@@ -7,11 +7,13 @@
 #include "Bot.h"
 #include "RoundContext.h"
 #include "Table.h"
+#include "PotManager.h"
 #include <vector>
 #include "Move.h"
 #include <cstdint>
 #include <string>
 #include <sstream>
+
 
 
 std::string rankToString(int r) {
@@ -138,15 +140,17 @@ void Game::runGame() {
 
     while (true) {
         std::cout << "\nNew hand is beginning!\n\n";
+
         std::vector<BaseParticipant*> initialOrder = table.getPlayersInOrder(Street::PreFlop);
-        RoundContext roundContext = newHandContext(bigBlind, smallBlind, initialOrder);
+        auto potManager = PotManager(initialOrder);
+        RoundContext roundContext = newHandContext(bigBlind, smallBlind, initialOrder, potManager);
         table.beginRound(); // new deck, deal 2 cards
 
         for (int i = 0; i < ALL_STREETS.size(); i++) {
             const Street street = ALL_STREETS[i];
             std::cout << "Current street is " << streetToString(street) << "\n";
-            playStreet(street, roundContext);
-            if (roundContext.endCode == 1 || roundContext.endCode == 2) break; // very dumb
+            const bool hasEnded = playStreet(street, roundContext, potManager);
+            if (hasEnded) break;
 
             if (ALL_STREETS[i] != Street::River) {
                 roundContext = createRoundContextForNextRound(ALL_STREETS[i + 1], roundContext.potSize, roundContext.endCode);
@@ -154,8 +158,7 @@ void Game::runGame() {
         }
 
         // we are going to need the roundContext endCode (but not really)
-        handleWinner(roundContext);
-        table.moveDealerButton(); // this is not done well
+        handleWinner(potManager);
         table.movePositions();
     }
 }
@@ -442,7 +445,7 @@ bool Game::hasAce(const std::vector<Card> &hand) {
     return false;
 }
 
-RoundContext Game::newHandContext(const int bb, const int sb, const std::vector<BaseParticipant*> &players) const {
+RoundContext Game::newHandContext(const int bb, const int sb, const std::vector<BaseParticipant*> &players, PotManager &potManager) const {
     RoundContext newContext;
     newContext.bb = bigBlind;
     newContext.lastMove = Move::Call; // COULD BE BAD
@@ -453,13 +456,15 @@ RoundContext Game::newHandContext(const int bb, const int sb, const std::vector<
 
     // note this will cause unsigned int overflow if the player has busted
     // for this use case we can leave it for now
-    for (int i = 0; i < players.size(); i++) {
-        if (players[i]->getPosition() == Position::SB) {
-            newContext.roundContributions[i] += sb;
-            players[i]->changeStack(sb, 0);
-        } else if (players[i]->getPosition() == Position::BB) {
-            newContext.roundContributions[i] += bb;
-            players[i]->changeStack(bb, 0);
+    for (auto player : players) {
+        if (player->getPosition() == Position::SB) {
+            newContext.roundContributions[player] += sb;
+            potManager.addContribution(player, sb);
+            player->changeStack(sb, 0);
+        } else if (player->getPosition() == Position::BB) {
+            newContext.roundContributions[player] += bb;
+            potManager.addContribution(player, bb);
+            player->changeStack(bb, 0);
         }
     }
 
@@ -481,30 +486,29 @@ RoundContext Game::createRoundContextForNextRound(const Street street, const uns
 
 //moves are in this order: Fold, Check, Bet, Call, Raise, All-in
 //RoundContext has: callAmount, potSize, bb, prevRaise, street, lastMove
-void Game::updateRoundContext(RoundContext &roundContext, Action action, const unsigned int playerIdx) const{
+void Game::updateRoundContext(RoundContext &roundContext, Action action, BaseParticipant* player) const{
     switch (action.move) {
         case Move::Fold: roundContext.lastMove = Move::Fold; break;
 
         case Move::Call: roundContext.lastMove = Move::Call;
-            roundContext.potSize += action.betAmount; roundContext.roundContributions[playerIdx] += action.betAmount;
+            roundContext.potSize += action.betAmount; roundContext.roundContributions[player] += action.betAmount;
             break;
 
         case Move::Check: roundContext.lastMove = Move::Check; break;
 
         case Move::Bet: roundContext.lastMove = Move::Bet;
             roundContext.prevRaise = action.raiseAmount;
-            roundContext.potSize += action.betAmount; roundContext.roundContributions[playerIdx] += action.betAmount;
-            std::cout << "Bet amount of " << action.betAmount << " was added to player at index" << playerIdx << "\n";
+            roundContext.potSize += action.betAmount; roundContext.roundContributions[player] += action.betAmount;
             break;
 
         case Move::Raise: roundContext.lastMove = Move::Raise;
             roundContext.potSize += action.betAmount;
-            roundContext.roundContributions[playerIdx] += action.betAmount;
+            roundContext.roundContributions[player] += action.betAmount;
             roundContext.prevRaise = action.betAmount; break;
 
         case Move::AllIn: roundContext.lastMove = Move::AllIn;
             roundContext.potSize += action.betAmount;
-            roundContext.roundContributions[playerIdx] += action.betAmount;
+            roundContext.roundContributions[player] += action.betAmount;
             roundContext.prevRaise = action.raiseAmount; break;
 
         default:
@@ -514,8 +518,9 @@ void Game::updateRoundContext(RoundContext &roundContext, Action action, const u
 
 // we should spend the time to make this as scalable as possible for poker other than heads up
 // let us treat amount as the amount to be raised
-void Game::playStreet(Street street, RoundContext &roundContext) {
-    // first, see if we have to draw some table cards
+// if this returns true, we can continue to the next street, if false, we end
+bool Game::playStreet(Street street, RoundContext &roundContext, PotManager &potManager) {
+    // Draw community cards
     switch (street) {
         case Street::Flop: table.flop(); break;
         case Street::Turn: table.turn(); break;
@@ -523,96 +528,172 @@ void Game::playStreet(Street street, RoundContext &roundContext) {
         default:;
     }
 
-    // see the board
     std::cout << table.boardToString() << "\n";
 
-    const std::vector<BaseParticipant*> players = table.getPlayersInOrder(street);
-    // if a raise occurs, this gets reset
-    // if counter == num of players, we are done
-    unsigned int counter = 0;
-    // this get number of players is only for players NOT folded
-    unsigned int numberOfPlayers = table.getNumberOfActivePlayers();
+    std::vector<BaseParticipant*> players = table.getPlayersInOrder(street);
 
-    // reminder that numberOfPlayers returns the number of players not FOLDED
-    // so we need to devise a way to just skip player with no chips
-    while (counter != numberOfPlayers && !onePlayerLeft()) {
-        // so it is getting stuck here when all the players have contributed their chips
+    // Track who has acted this round
+    std::unordered_set<BaseParticipant*> hasActed;
 
-        // so if all active players are all-in (no chips), continue through the streets and get the winner
+    while (!onePlayerLeft()) {
+        // Check if everyone is all-in except maybe one player
         if (checkShowdown()) {
             break;
         }
 
-        for (int i = 0; i < players.size() && !onePlayerLeft(); i++) {
+        // Check if betting round is complete
+        if (isBettingComplete(players, hasActed, roundContext)) {
+            break;
+        }
 
-            // if the player has folded, or if they have no chips, we can skip their turn
-            if (players[i]->isFolded() || players[i]->getStack() == 0) {
-                // just to check
-                if (players[i]->getStack() == 0) {
-                    std::cout << "This player has no chips left\n";
-                }
+        for (size_t i = 0; i < players.size() && !onePlayerLeft(); i++) {
+            BaseParticipant* player = players[i];
+
+            // Skip folded players or players with no chips
+            if (player->isFolded() || player->getStack() == 0) {
                 continue;
             }
 
-            if (dynamic_cast<Player*>(players[i])) {
-                // only see the players hand, not the bots.
-                std::cout << "Your hand is: " << players[i]->getHand() << "\n";
+            // Skip if this player has already acted in this betting round
+            if (hasActed.count(player)) {
+                continue;
             }
 
-            // if a player does not have chips left
-            const Action action = players[i]->act(roundContext, roundContext.amountToCall(i, players));
-            // we need the prev move before updating it
-            const Move previousMove = roundContext.lastMove;
-            updateRoundContext(roundContext, action, i);
-
-            // ugly stuff
-            if (action.move == Move::Raise || action.move == Move::AllIn || (street != Street::PreFlop && action.move == Move::Bet && (previousMove == Move::Check || previousMove == Move::NO_MOVE))) {
-                counter = 0;
-                numberOfPlayers = table.getNumberOfActivePlayers() - 1;
-            } else {
-                counter++;
+            // Show player's hand if human
+            if (dynamic_cast<Player*>(player)) {
+                std::cout << "Your hand is: " << player->getHand() << "\n";
             }
 
-            if (counter == numberOfPlayers) {
-                break;
+            // Get action
+            const unsigned int amountToCall = roundContext.amountToCall(player);
+            const Action action = player->act(roundContext, amountToCall);
+            const unsigned int betAmount = action.betAmount;
+
+            // Update context
+            updateRoundContext(roundContext, action, player);
+            potManager.addContribution(player, betAmount);
+            hasActed.insert(player);
+
+            // If this was a raise, everyone needs to act again
+            if (betAmount > amountToCall) {
+                hasActed.clear();
+                hasActed.insert(player); // Raiser has acted
             }
         }
     }
-    // now we report the end code via roundContext
-    // so if the round is done, the game can be made aware
-    numberOfPlayers = table.getNumberOfActivePlayers();
-    if (numberOfPlayers > 1 && street == Street::River) roundContext.endCode = 2;
-    else if (numberOfPlayers == 1) roundContext.endCode = 1;
+
+    potManager.calculatePots(players);
+    unsigned int numberOfPlayers = table.getNumberOfActivePlayers();
+
+    // Hand is over if we're on river or only one player left
+    return (numberOfPlayers > 1 && street == Street::River) || numberOfPlayers == 1;
 }
 
-// the end code might not even be useful
-void Game::handleWinner(const RoundContext &roundContext) const {
-    // everyone folded besides one person
-    // so find that person, give them the chips
-    const std::vector<std::unique_ptr<BaseParticipant>>& players = table.getPlayers();
-    // where val is the idx
-    std::vector<std::tuple<BaseParticipant*, u_int32_t>> handRankings;
+bool Game::isBettingComplete(const std::vector<BaseParticipant*>& players, const std::unordered_set<BaseParticipant*>& hasActed,
+                              const RoundContext& roundContext) const {
+    // Everyone who can act must have acted
+    for (auto* player : players) {
+        if (player->isFolded() || player->getStack() == 0) {
+            continue; // Skip folded/all-in players
+        }
 
-    for (auto &p : players) {
-        if (!p->isFolded()) {
-            std::vector<Card> hand = p->getCards();
-            std::vector<Card> fullHand = table.getFullHand(hand);
-            std::tuple<BaseParticipant*, uint32_t> entry(p.get(), classifyHand(fullHand));
+        if (!hasActed.count(player)) {
+            return false; // This player hasn't acted yet
+        }
+    }
+
+    // All active players must have matched the highest contribution
+    unsigned int maxContribution = 0;
+    for (const auto& [player, amount] : roundContext.roundContributions) {
+        if (!player->isFolded()) {
+            maxContribution = std::max(maxContribution, amount);
+        }
+    }
+
+    for (auto* player : players) {
+        if (player->isFolded()) continue;
+
+        unsigned int contribution = roundContext.roundContributions.at(player);
+
+        // Player must have either matched max contribution OR be all-in
+        if (contribution < maxContribution && player->getStack() > 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void Game::handleWinner(const PotManager &potManager) const {
+    // std::cout << "Handling the winner\n";
+
+    // so for each pot, we need to look over
+    for (const auto &pot : potManager.getPots()) {
+        // lets just copy here for now, this also accounts for folded players
+        std::vector<BaseParticipant*> eligiblePlayers = pot.eligiblePlayers;
+        std::vector<std::tuple<BaseParticipant*, u_int32_t>> handRankings;
+
+        // now we go through the eligible players and rank their hand
+        for (const auto &p: eligiblePlayers) {
+            std::vector<Card> holeCards = p->getCards();
+            std::vector<Card> fullHand = table.getFullHand(holeCards);
+            std::tuple<BaseParticipant*, uint32_t> entry(p, classifyHand(fullHand));
+            std::cout << p->getName() << " has " << decodeHandRank(std::get<1>(entry)) << "\n";
             handRankings.push_back(entry);
         }
+
+        // now we have all the hand rankings for this pot
+        std::sort(handRankings.begin(), handRankings.end(),[](const auto& a, const auto& b) {
+              return std::get<1>(a) > std::get<1>(b);  // Higher value = better hand
+          });
+
+        uint32_t bestHandValue = std::get<1>(handRankings[0]);
+        // now we take the players with the best hand, and divide the pot evenly
+        std::vector<BaseParticipant*> winners;
+        for (const auto& [player, handValue] : handRankings) {
+            if (handValue == bestHandValue) {
+                winners.push_back(player);
+            } else {
+                break;  // Since sorted, once we hit a lower value, we're done
+            }
+        }
+
+        // now we have the winners for the pot
+        awardPot(pot, winners);
+    }
+}
+
+void Game::awardPot(const Pot& pot, const std::vector<BaseParticipant*>& winners) const {
+    if (winners.empty()) {
+        std::cerr << "Error: No winners for pot!" << std::endl;
+        return;
     }
 
-    std::sort(handRankings.begin(), handRankings.end(),
-    [](const auto &a, const auto &b) {
-        return std::get<1>(a) > std::get<1>(b);
-    });
+    unsigned int numWinners = winners.size();
+    unsigned int amountPerWinner = pot.amount / numWinners;
+    unsigned int remainder = pot.amount % numWinners;
 
-    // now we can take the first one, and give them the pot
-    auto [winningPlayer, rank] = handRankings.front();
-    winningPlayer->changeStack(roundContext.potSize, 1);
+    // Award chips to each winner
+    for (int i = 0; i < winners.size(); i++) {
+        unsigned int award = amountPerWinner;
 
-    std::cout << winningPlayer->getName() << " won with " <<  decodeHandRank(rank) << "\n";
+        // First winner gets the odd chip(s)
+        if (i == 0) {
+            award += remainder;
+        }
+
+        winners[i]->changeStack(award, 1);
+
+        // Display result
+        if (numWinners > 1) {
+            std::cout << winners[i]->getName() << " wins $" << award
+                      << " (split pot with " << numWinners << " players)" << std::endl;
+        } else {
+            std::cout << winners[i]->getName() << " wins $" << award << std::endl;
+        }
+    }
 }
+
 
 inline bool Game::onePlayerLeft() const {
     return (table.getNumberOfActivePlayers() == 1); // getActivePlayers returns count of players not folded
