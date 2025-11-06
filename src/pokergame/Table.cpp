@@ -87,12 +87,12 @@ void Table::assignInitialDealer() const {
 // for example if we have two players, they swap idx each time, and we
 // loop through the enum and reassign positions. Since we also have the button
 // we should keep track of that too
-void Table::movePositions() {
+bool Table::movePositions() {
     removeBustedPlayers();
 
     if (players.size() < 2) {
         // we need to implement logic for when the game ends
-        return;
+        return false;
     }
 
     dealerIdx = (dealerIdx + 1) % players.size();
@@ -102,6 +102,8 @@ void Table::movePositions() {
         p->unfold();
         p->unAllIn();
     }
+
+    return true;
 
 }
 

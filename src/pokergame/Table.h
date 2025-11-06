@@ -21,7 +21,7 @@ public:
     // now we can actually advance the next player int
     // in the game class from here
     std::vector<BaseParticipant*> getPlayersInOrder(Street street) const;
-    void movePositions();
+    bool movePositions();
     void removeBustedPlayers();
     void assignPositionsFromDealer();
     void beginRound();

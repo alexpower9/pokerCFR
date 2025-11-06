@@ -5,8 +5,6 @@
 #include "PotManager.h"
 #include <set>
 #include <iostream>
-
-
 #include "RoundContext.h"
 
 void PotManager::calculatePots(const std::vector<BaseParticipant *> &players) {
