@@ -159,34 +159,13 @@ void Game::runGame() {
 
         // we are going to need the roundContext endCode (but not really)
         handleWinner(potManager);
-        table.movePositions();
+
+        if (!table.movePositions()) {
+            std::cout << "The game has ended!" << "\n";
+            break;
+        }
     }
 }
-
-// maybe return 3 for a tie
-// int Game::evaluateHands(const std::vector<Card> &hand1, const std::vector<Card> &hand2) {
-//     std::vector<Card> combined1 = hand1;
-//     std::vector<Card> combined2 = hand2;
-//     //
-//     // combined1.insert(combined1.end(), communityCards.begin(), communityCards.end());
-//     // combined2.insert(combined2.end(), communityCards.begin(), communityCards.end());
-//
-//     std::sort(combined1.begin(), combined1.end());
-//     std::sort(combined2.begin(), combined2.end());
-//
-//
-//     const u_int32_t handRank1 = classifyHand(hand1);
-//     const u_int32_t handRank2 = classifyHand(hand2);
-//
-//     if (handRank1 > handRank2) {
-//         return 1;
-//     } else if (handRank2 > handRank1) {
-//         return 2;
-//     } else {
-//         return 3;
-//     }
-// }
-
 // reminder that this will be given the full 7 Card hand, already sorted.
 // THIS IS MY OLD VERSION, WHICH WAS TOO SLOW
 u_int32_t Game::classifyHand(const std::vector<Card> &hand) {
